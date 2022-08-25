@@ -51,8 +51,12 @@ fetcher s =
             , "Mac"
             , "Belle"
             ]
+
+        insensitiveStringContains : String -> String -> Bool
+        insensitiveStringContains a b =
+            String.contains (String.toLower a) (String.toLower b)
     in
-    case List.filter (String.contains s) dogs of
+    case List.filter (insensitiveStringContains s) dogs of
         [] ->
             Task.fail "No dog name found."
 
