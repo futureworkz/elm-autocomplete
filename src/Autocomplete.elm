@@ -2,6 +2,7 @@ module Autocomplete exposing
     ( Autocomplete
     , Msg
     , init
+    , isFetching
     , suggestions
     , update
     )
@@ -23,6 +24,7 @@ type alias State =
     { query : String
     , suggestions : Result String (List String)
     , fetcher : String -> Task String (List String)
+    , isFetching : Bool
     , debounceConfig : Debounce.Config Msg
     , debounceState : Debounce String
     }
@@ -34,6 +36,7 @@ init fetcher =
         { query = ""
         , suggestions = Ok []
         , fetcher = fetcher
+        , isFetching = False
         , debounceConfig =
             { strategy = Debounce.later 200
             , transform = DebounceMsg
@@ -63,14 +66,14 @@ update msg (Autocomplete state) =
 
         DebounceMsg debouceMsg ->
             let
-                fetchCmd : String -> Cmd Msg
-                fetchCmd s =
-                    Task.attempt OnFetch <| state.fetcher s
+                doFetchCmd : String -> Cmd Msg
+                doFetchCmd s =
+                    Task.perform DoFetch <| Task.succeed s
 
                 ( debounceState, debounceCmd ) =
                     Debounce.update
                         state.debounceConfig
-                        (Debounce.takeLast fetchCmd)
+                        (Debounce.takeLast doFetchCmd)
                         debouceMsg
                         state.debounceState
             in
@@ -78,8 +81,19 @@ update msg (Autocomplete state) =
             , debounceCmd
             )
 
+        DoFetch s ->
+            ( Autocomplete { state | isFetching = True }
+            , Task.attempt OnFetch <| state.fetcher s
+            )
+
         OnFetch s ->
-            ( Autocomplete { state | suggestions = s }, Cmd.none )
+            ( Autocomplete
+                { state
+                    | suggestions = s
+                    , isFetching = False
+                }
+            , Cmd.none
+            )
 
 
 
@@ -89,3 +103,8 @@ update msg (Autocomplete state) =
 suggestions : Autocomplete -> Result String (List String)
 suggestions (Autocomplete state) =
     state.suggestions
+
+
+isFetching : Autocomplete -> Bool
+isFetching (Autocomplete state) =
+    state.isFetching

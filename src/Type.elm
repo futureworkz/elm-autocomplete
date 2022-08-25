@@ -10,5 +10,6 @@ import Debounce
 
 type Msg
     = OnInput String
+    | DoFetch String
     | OnFetch (Result String (List String))
     | DebounceMsg Debounce.Msg

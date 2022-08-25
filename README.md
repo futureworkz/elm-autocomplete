@@ -3,7 +3,7 @@
 Elm HTML Input with autocomplete suggestions
 
 # TODO
-- Add loading state in model
+- Add key events
 - Make `Autocomplete.View` style-able
 - Add `elm-css` view
 - Add test cases?
