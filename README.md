@@ -3,7 +3,6 @@
 Elm HTML Input with autocomplete suggestions
 
 # TODO
-- Add key events
 - Make `Autocomplete.View` style-able
 - Add `elm-css` view
 - Add test cases?

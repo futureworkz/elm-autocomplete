@@ -3,17 +3,18 @@ module Autocomplete exposing
     , Msg
     , init
     , isFetching
+    , selectedIndex
     , suggestions
     , update
     )
 
 import Debounce exposing (Debounce)
+import Internal exposing (Msg(..))
 import Task exposing (Task)
-import Type as T exposing (Msg(..))
 
 
 type alias Msg =
-    T.Msg
+    Internal.Msg
 
 
 type Autocomplete
@@ -23,6 +24,7 @@ type Autocomplete
 type alias State =
     { query : String
     , suggestions : Result String (List String)
+    , selectedIndex : Maybe Int
     , fetcher : String -> Task String (List String)
     , isFetching : Bool
     , debounceConfig : Debounce.Config Msg
@@ -35,6 +37,7 @@ init fetcher =
     Autocomplete
         { query = ""
         , suggestions = Ok []
+        , selectedIndex = Nothing
         , fetcher = fetcher
         , isFetching = False
         , debounceConfig =
@@ -59,6 +62,7 @@ update msg (Autocomplete state) =
             ( Autocomplete
                 { state
                     | query = query
+                    , selectedIndex = Nothing
                     , debounceState = debounceState
                 }
             , debounceCmd
@@ -82,7 +86,7 @@ update msg (Autocomplete state) =
             )
 
         DoFetch s ->
-            ( Autocomplete { state | isFetching = True }
+            ( Autocomplete { state | isFetching = True, selectedIndex = Nothing }
             , Task.attempt OnFetch <| state.fetcher s
             )
 
@@ -91,6 +95,18 @@ update msg (Autocomplete state) =
                 { state
                     | suggestions = s
                     , isFetching = False
+                }
+            , Cmd.none
+            )
+
+        OnKeyDown keyDown ->
+            ( Autocomplete
+                { state
+                    | selectedIndex =
+                        Internal.calculateIndex
+                            (Result.withDefault [] state.suggestions)
+                            state.selectedIndex
+                            keyDown
                 }
             , Cmd.none
             )
@@ -108,3 +124,8 @@ suggestions (Autocomplete state) =
 isFetching : Autocomplete -> Bool
 isFetching (Autocomplete state) =
     state.isFetching
+
+
+selectedIndex : Autocomplete -> Maybe Int
+selectedIndex (Autocomplete state) =
+    state.selectedIndex
