@@ -4,6 +4,7 @@ import Autocomplete exposing (Autocomplete)
 import Autocomplete.View as AutocompleteView
 import Browser
 import Html exposing (Html)
+import Html.Attributes
 import Task exposing (Task)
 
 
@@ -18,12 +19,12 @@ main =
 
 
 type alias Model =
-    { autocompleteState : Autocomplete
+    { autocompleteState : Autocomplete String String
     }
 
 
 type Msg
-    = OnAutocomplete Autocomplete.Msg
+    = OnAutocomplete (Autocomplete.Msg String String)
 
 
 fetcher : String -> Task String (List String)
@@ -64,6 +65,10 @@ fetcher s =
             Task.succeed xs
 
 
+
+-- Model
+
+
 init : ( Model, Cmd Msg )
 init =
     ( { autocompleteState = Autocomplete.init fetcher
@@ -85,10 +90,49 @@ update msg model =
             )
 
 
+
+-- View
+
+
 view : Model -> Html Msg
 view model =
-    Html.map OnAutocomplete <|
-        Html.div []
-            [ AutocompleteView.input model.autocompleteState
-            , AutocompleteView.suggestions model.autocompleteState
-            ]
+    let
+        { autocompleteState } =
+            model
+
+        query =
+            Autocomplete.query autocompleteState
+
+        suggestions =
+            Autocomplete.suggestions autocompleteState
+
+        selectedIndex =
+            Autocomplete.selectedIndex autocompleteState
+    in
+    Html.div []
+        [ Html.input (AutocompleteView.events OnAutocomplete ++ [ Html.Attributes.value query ]) []
+        , case suggestions of
+            Err e ->
+                Html.div [] [ Html.text e ]
+
+            Ok s ->
+                Html.div [] <| List.indexedMap (suggestion selectedIndex) s
+        ]
+
+
+suggestion : Maybe Int -> Int -> String -> Html Msg
+suggestion selectedIndex index s =
+    let
+        isSelected =
+            selectedIndex
+                |> Maybe.map (\i -> i == index)
+                |> Maybe.withDefault False
+    in
+    Html.div
+        [ if isSelected then
+            Html.Attributes.style "backgroundColor" "#EEE"
+
+          else
+            Html.Attributes.style "backgroundColor" "#FFF"
+        ]
+        [ Html.text s ]

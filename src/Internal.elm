@@ -7,10 +7,10 @@ import Debounce
 -- This file is not exposed as a module
 
 
-type Msg
+type Msg e a
     = OnInput String
     | DoFetch String
-    | OnFetch (Result String (List String))
+    | OnFetch (Result e (List a))
     | OnKeyDown KeyDown
     | DebounceMsg Debounce.Msg
 
@@ -18,10 +18,11 @@ type Msg
 type KeyDown
     = ArrowUp
     | ArrowDown
+    | Enter
 
 
-calculateIndex : List String -> Maybe Int -> KeyDown -> Maybe Int
-calculateIndex xs selectedIndex keyDown =
+calculateIndex : List a -> Maybe Int -> KeyDown -> Maybe Int
+calculateIndex xs currentIndex keyDown =
     case xs of
         [] ->
             Nothing
@@ -31,7 +32,7 @@ calculateIndex xs selectedIndex keyDown =
                 len =
                     List.length xs
             in
-            case ( selectedIndex, keyDown ) of
+            case ( currentIndex, keyDown ) of
                 ( Nothing, ArrowUp ) ->
                     Just <| len - 1
 
@@ -43,6 +44,9 @@ calculateIndex xs selectedIndex keyDown =
 
                 ( Just i, ArrowDown ) ->
                     Just <| wrapAround len (i + 1)
+
+                ( _, Enter ) ->
+                    currentIndex
 
 
 wrapAround : Int -> Int -> Int

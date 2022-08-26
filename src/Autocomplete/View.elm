@@ -1,45 +1,22 @@
-module Autocomplete.View exposing
-    ( input
-    , inputAttributes
-    , suggestions
-    )
+module Autocomplete.View exposing (events)
 
-import Autocomplete exposing (Autocomplete)
-import Html exposing (Attribute, Html, div, text)
+import Html exposing (Attribute)
+import Html.Attributes
 import Html.Events as Events
 import Internal exposing (KeyDown(..), Msg(..))
 import Json.Decode as JD
 
 
-input : Autocomplete -> Html Msg
-input _ =
-    Html.input inputAttributes []
+events : (Msg e a -> msg) -> List (Attribute msg)
+events tagger =
+    List.map (Html.Attributes.map tagger)
+        [ Events.onInput OnInput
+        , Events.on "keydown" <| JD.map OnKeyDown arrowKeyDecoder
+        ]
 
 
-suggestions : Autocomplete -> Html Msg
-suggestions autocomplete =
-    case Autocomplete.suggestions autocomplete of
-        Err e ->
-            div [] [ text e ]
-
-        Ok s ->
-            div [] <| List.map suggestion s
-
-
-suggestion : String -> Html Msg
-suggestion s =
-    div [] [ text s ]
-
-
-inputAttributes : List (Attribute Msg)
-inputAttributes =
-    [ Events.onInput OnInput
-    , Events.on "keydown" <| JD.map OnKeyDown keyDownDecoder
-    ]
-
-
-keyDownDecoder : JD.Decoder KeyDown
-keyDownDecoder =
+arrowKeyDecoder : JD.Decoder KeyDown
+arrowKeyDecoder =
     JD.field "key" JD.string
         |> JD.andThen
             (\s ->
@@ -49,6 +26,9 @@ keyDownDecoder =
 
                     "ArrowDown" ->
                         JD.succeed ArrowDown
+
+                    "Enter" ->
+                        JD.succeed Enter
 
                     _ ->
                         JD.fail "Ignore other keys"

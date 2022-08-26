@@ -1,38 +1,44 @@
 module Autocomplete exposing
     ( Autocomplete
+    , KeyDown
     , Msg
     , init
     , isFetching
+    , query
     , selectedIndex
     , suggestions
     , update
     )
 
 import Debounce exposing (Debounce)
-import Internal exposing (Msg(..))
+import Internal exposing (KeyDown(..), Msg(..))
 import Task exposing (Task)
 
 
-type alias Msg =
-    Internal.Msg
+type alias Msg e a =
+    Internal.Msg e a
 
 
-type Autocomplete
-    = Autocomplete State
+type alias KeyDown =
+    Internal.KeyDown
 
 
-type alias State =
+type Autocomplete e a
+    = Autocomplete (State e a)
+
+
+type alias State e a =
     { query : String
-    , suggestions : Result String (List String)
+    , suggestions : Result e (List a)
     , selectedIndex : Maybe Int
-    , fetcher : String -> Task String (List String)
+    , fetcher : String -> Task e (List a)
     , isFetching : Bool
-    , debounceConfig : Debounce.Config Msg
+    , debounceConfig : Debounce.Config (Msg e a)
     , debounceState : Debounce String
     }
 
 
-init : (String -> Task String (List String)) -> Autocomplete
+init : (String -> Task e (List a)) -> Autocomplete e a
 init fetcher =
     Autocomplete
         { query = ""
@@ -48,20 +54,20 @@ init fetcher =
         }
 
 
-update : Msg -> Autocomplete -> ( Autocomplete, Cmd Msg )
+update : Msg e a -> Autocomplete e a -> ( Autocomplete e a, Cmd (Msg e a) )
 update msg (Autocomplete state) =
     case msg of
-        OnInput query ->
+        OnInput q ->
             let
                 ( debounceState, debounceCmd ) =
                     Debounce.push
                         state.debounceConfig
-                        query
+                        q
                         state.debounceState
             in
             ( Autocomplete
                 { state
-                    | query = query
+                    | query = q
                     , selectedIndex = Nothing
                     , debounceState = debounceState
                 }
@@ -70,7 +76,7 @@ update msg (Autocomplete state) =
 
         DebounceMsg debouceMsg ->
             let
-                doFetchCmd : String -> Cmd Msg
+                doFetchCmd : String -> Cmd (Msg e a)
                 doFetchCmd s =
                     Task.perform DoFetch <| Task.succeed s
 
@@ -116,16 +122,21 @@ update msg (Autocomplete state) =
 -- Accessors
 
 
-suggestions : Autocomplete -> Result String (List String)
+query : Autocomplete e a -> String
+query (Autocomplete state) =
+    state.query
+
+
+suggestions : Autocomplete e a -> Result e (List a)
 suggestions (Autocomplete state) =
     state.suggestions
 
 
-isFetching : Autocomplete -> Bool
+isFetching : Autocomplete e a -> Bool
 isFetching (Autocomplete state) =
     state.isFetching
 
 
-selectedIndex : Autocomplete -> Maybe Int
+selectedIndex : Autocomplete e a -> Maybe Int
 selectedIndex (Autocomplete state) =
     state.selectedIndex
