@@ -32,7 +32,7 @@ inputEvents mapper =
             mapper
     in
     [ Events.onInput (mapHtml << OnInput)
-    , Events.on "keydown" <| onKeyDownDecoder mapper
+    , Events.preventDefaultOn "keydown" <| onKeyDownDecoder mapper
     ]
 
 
@@ -53,7 +53,7 @@ choiceEvents mapper index =
     ]
 
 
-onKeyDownDecoder : EventMapper a msg -> JD.Decoder msg
+onKeyDownDecoder : EventMapper a msg -> JD.Decoder ( msg, Bool )
 onKeyDownDecoder mapper =
     let
         { onSelect, mapHtml } =
@@ -64,13 +64,13 @@ onKeyDownDecoder mapper =
             (\s ->
                 case s of
                     "ArrowUp" ->
-                        JD.succeed <| mapHtml <| OnKeyDown ArrowUp
+                        JD.succeed ( mapHtml <| OnKeyDown ArrowUp, True )
 
                     "ArrowDown" ->
-                        JD.succeed <| mapHtml <| OnKeyDown ArrowDown
+                        JD.succeed ( mapHtml <| OnKeyDown ArrowDown, True )
 
                     "Enter" ->
-                        JD.succeed onSelect
+                        JD.succeed ( onSelect, True )
 
                     _ ->
                         JD.fail "Ignore other keys"
