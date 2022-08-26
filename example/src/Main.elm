@@ -3,7 +3,7 @@ module Main exposing (main)
 import Autocomplete exposing (Autocomplete)
 import Autocomplete.View as AutocompleteView
 import Browser
-import Html exposing (Html, a)
+import Html exposing (Attribute, Html)
 import Html.Attributes
 import Task exposing (Task)
 
@@ -25,6 +25,7 @@ type alias Model =
 
 type Msg
     = OnAutocomplete (Autocomplete.Msg (List String))
+    | OnAutocompleteSelect
 
 
 fetcher : String -> Task Never (Autocomplete.Choices (List String))
@@ -92,6 +93,10 @@ update msg model =
             , Cmd.map OnAutocomplete autoCompleteCmd
             )
 
+        OnAutocompleteSelect ->
+            -- TODO Get the selected value from model.autocompleteState
+            ( model, Cmd.none )
+
 
 
 -- View
@@ -105,28 +110,35 @@ view model =
 
         { query, choices, selectedIndex } =
             Autocomplete.viewState autocompleteState
+
+        { inputEvents, choiceEvents } =
+            AutocompleteView.events
+                { onSelect = OnAutocompleteSelect
+                , mapHtml = OnAutocomplete
+                }
     in
     Html.div []
-        [ Html.input (AutocompleteView.events OnAutocomplete ++ [ Html.Attributes.value query ]) []
+        [ Html.input (inputEvents ++ [ Html.Attributes.value query ])
+            []
         , Html.div [] <|
             if Autocomplete.isFetching autocompleteState then
                 [ Html.text "Fetching..." ]
 
             else if String.length query > 0 then
-                List.indexedMap (renderChoice selectedIndex) choices
+                List.indexedMap (renderChoice choiceEvents selectedIndex) choices
 
             else
                 [ Html.text "" ]
         ]
 
 
-renderChoice : Maybe Int -> Int -> String -> Html Msg
-renderChoice selectedIndex index s =
+renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> String -> Html Msg
+renderChoice events selectedIndex index s =
     Html.div
-        [ if Autocomplete.isSelected selectedIndex index then
-            Html.Attributes.style "backgroundColor" "#EEE"
+        (if Autocomplete.isSelected selectedIndex index then
+            Html.Attributes.style "backgroundColor" "#EEE" :: events index
 
-          else
-            Html.Attributes.style "backgroundColor" "#FFF"
-        ]
+         else
+            Html.Attributes.style "backgroundColor" "#FFF" :: events index
+        )
         [ Html.text s ]

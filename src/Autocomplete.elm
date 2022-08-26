@@ -133,6 +133,12 @@ update msg (Autocomplete state) =
             , Cmd.none
             )
 
+        OnMouseUp index ->
+            -- TODO Probably need to check if it is out of range??? isFetching??
+            ( Autocomplete { state | selectedIndex = Just index }
+            , Cmd.none
+            )
+
 
 
 -- Accessors
