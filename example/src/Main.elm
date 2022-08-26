@@ -3,7 +3,7 @@ module Main exposing (main)
 import Autocomplete exposing (Autocomplete)
 import Autocomplete.View as AutocompleteView
 import Browser
-import Html exposing (Html)
+import Html exposing (Html, a)
 import Html.Attributes
 import Task exposing (Task)
 
@@ -19,16 +19,16 @@ main =
 
 
 type alias Model =
-    { autocompleteState : Autocomplete String String
+    { autocompleteState : Autocomplete (List String)
     }
 
 
 type Msg
-    = OnAutocomplete (Autocomplete.Msg String String)
+    = OnAutocomplete (Autocomplete.Msg (List String))
 
 
-fetcher : String -> Task String (List String)
-fetcher s =
+fetcher : String -> Task Never (Autocomplete.Choices (List String))
+fetcher query =
     let
         dogs =
             [ "Hunter"
@@ -56,13 +56,16 @@ fetcher s =
         insensitiveStringContains : String -> String -> Bool
         insensitiveStringContains a b =
             String.contains (String.toLower a) (String.toLower b)
-    in
-    case List.filter (insensitiveStringContains s) dogs of
-        [] ->
-            Task.fail "No dog name found."
 
-        xs ->
-            Task.succeed xs
+        choices : List String
+        choices =
+            if String.length query == 0 then
+                []
+
+            else
+                List.filter (insensitiveStringContains query) dogs
+    in
+    Task.succeed { choices = choices, length = List.length choices }
 
 
 
@@ -71,7 +74,7 @@ fetcher s =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init fetcher
+    ( { autocompleteState = Autocomplete.init { choices = [], length = 0 } fetcher
       }
     , Cmd.none
     )
@@ -100,36 +103,27 @@ view model =
         { autocompleteState } =
             model
 
-        query =
-            Autocomplete.query autocompleteState
-
-        suggestions =
-            Autocomplete.suggestions autocompleteState
-
-        selectedIndex =
-            Autocomplete.selectedIndex autocompleteState
+        { query, choices, selectedIndex } =
+            Autocomplete.viewState autocompleteState
     in
     Html.div []
         [ Html.input (AutocompleteView.events OnAutocomplete ++ [ Html.Attributes.value query ]) []
-        , case suggestions of
-            Err e ->
-                Html.div [] [ Html.text e ]
+        , Html.div [] <|
+            if Autocomplete.isFetching autocompleteState then
+                [ Html.text "Fetching..." ]
 
-            Ok s ->
-                Html.div [] <| List.indexedMap (suggestion selectedIndex) s
+            else if String.length query > 0 then
+                List.indexedMap (renderChoice selectedIndex) choices
+
+            else
+                [ Html.text "" ]
         ]
 
 
-suggestion : Maybe Int -> Int -> String -> Html Msg
-suggestion selectedIndex index s =
-    let
-        isSelected =
-            selectedIndex
-                |> Maybe.map (\i -> i == index)
-                |> Maybe.withDefault False
-    in
+renderChoice : Maybe Int -> Int -> String -> Html Msg
+renderChoice selectedIndex index s =
     Html.div
-        [ if isSelected then
+        [ if Autocomplete.isSelected selectedIndex index then
             Html.Attributes.style "backgroundColor" "#EEE"
 
           else

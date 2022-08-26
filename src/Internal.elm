@@ -1,4 +1,4 @@
-module Internal exposing (KeyDown(..), Msg(..), calculateIndex)
+module Internal exposing (Choices, KeyDown(..), Msg(..), calculateIndex)
 
 import Debounce
 
@@ -7,12 +7,18 @@ import Debounce
 -- This file is not exposed as a module
 
 
-type Msg e a
+type Msg a
     = OnInput String
     | DoFetch String
-    | OnFetch (Result e (List a))
+    | OnFetch (Choices a)
     | OnKeyDown KeyDown
     | DebounceMsg Debounce.Msg
+
+
+type alias Choices a =
+    { choices : a
+    , length : Int
+    }
 
 
 type KeyDown
@@ -21,32 +27,27 @@ type KeyDown
     | Enter
 
 
-calculateIndex : List a -> Maybe Int -> KeyDown -> Maybe Int
-calculateIndex xs currentIndex keyDown =
-    case xs of
-        [] ->
-            Nothing
+calculateIndex : Int -> Maybe Int -> KeyDown -> Maybe Int
+calculateIndex len currentIndex keyDown =
+    if len <= 0 then
+        Nothing
 
-        _ ->
-            let
-                len =
-                    List.length xs
-            in
-            case ( currentIndex, keyDown ) of
-                ( Nothing, ArrowUp ) ->
-                    Just <| len - 1
+    else
+        case ( currentIndex, keyDown ) of
+            ( Nothing, ArrowUp ) ->
+                Just <| len - 1
 
-                ( Nothing, ArrowDown ) ->
-                    Just 0
+            ( Nothing, ArrowDown ) ->
+                Just 0
 
-                ( Just i, ArrowUp ) ->
-                    Just <| wrapAround len (i - 1)
+            ( Just i, ArrowUp ) ->
+                Just <| wrapAround len (i - 1)
 
-                ( Just i, ArrowDown ) ->
-                    Just <| wrapAround len (i + 1)
+            ( Just i, ArrowDown ) ->
+                Just <| wrapAround len (i + 1)
 
-                ( _, Enter ) ->
-                    currentIndex
+            ( _, Enter ) ->
+                currentIndex
 
 
 wrapAround : Int -> Int -> Int

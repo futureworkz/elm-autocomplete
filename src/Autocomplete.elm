@@ -1,13 +1,16 @@
 module Autocomplete exposing
     ( Autocomplete
-    , KeyDown
+    , Choices
     , Msg
+    , ViewState
+    , choices
     , init
     , isFetching
+    , isSelected
     , query
     , selectedIndex
-    , suggestions
     , update
+    , viewState
     )
 
 import Debounce exposing (Debounce)
@@ -15,34 +18,45 @@ import Internal exposing (KeyDown(..), Msg(..))
 import Task exposing (Task)
 
 
-type alias Msg e a =
-    Internal.Msg e a
+type alias Msg a =
+    Internal.Msg a
 
 
-type alias KeyDown =
-    Internal.KeyDown
+type alias Choices a =
+    Internal.Choices a
 
 
-type Autocomplete e a
-    = Autocomplete (State e a)
+type Autocomplete a
+    = Autocomplete (State a)
 
 
-type alias State e a =
+type alias State a =
     { query : String
-    , suggestions : Result e (List a)
+    , choices : a
+    , choicesLen : Int
     , selectedIndex : Maybe Int
-    , fetcher : String -> Task e (List a)
+    , fetcher : String -> Task Never (Choices a)
     , isFetching : Bool
-    , debounceConfig : Debounce.Config (Msg e a)
+    , debounceConfig : Debounce.Config (Msg a)
     , debounceState : Debounce String
     }
 
 
-init : (String -> Task e (List a)) -> Autocomplete e a
-init fetcher =
+type alias ViewState a =
+    { query : String
+    , choices : a
+    , choicesLen : Int
+    , selectedIndex : Maybe Int
+    , isFetching : Bool
+    }
+
+
+init : Choices a -> (String -> Task Never (Choices a)) -> Autocomplete a
+init initChoices fetcher =
     Autocomplete
         { query = ""
-        , suggestions = Ok []
+        , choices = initChoices.choices
+        , choicesLen = initChoices.length
         , selectedIndex = Nothing
         , fetcher = fetcher
         , isFetching = False
@@ -54,7 +68,7 @@ init fetcher =
         }
 
 
-update : Msg e a -> Autocomplete e a -> ( Autocomplete e a, Cmd (Msg e a) )
+update : Msg a -> Autocomplete a -> ( Autocomplete a, Cmd (Msg a) )
 update msg (Autocomplete state) =
     case msg of
         OnInput q ->
@@ -68,6 +82,7 @@ update msg (Autocomplete state) =
             ( Autocomplete
                 { state
                     | query = q
+                    , isFetching = True
                     , selectedIndex = Nothing
                     , debounceState = debounceState
                 }
@@ -76,7 +91,7 @@ update msg (Autocomplete state) =
 
         DebounceMsg debouceMsg ->
             let
-                doFetchCmd : String -> Cmd (Msg e a)
+                doFetchCmd : String -> Cmd (Msg a)
                 doFetchCmd s =
                     Task.perform DoFetch <| Task.succeed s
 
@@ -92,14 +107,15 @@ update msg (Autocomplete state) =
             )
 
         DoFetch s ->
-            ( Autocomplete { state | isFetching = True, selectedIndex = Nothing }
-            , Task.attempt OnFetch <| state.fetcher s
+            ( Autocomplete state
+            , Task.perform OnFetch <| state.fetcher s
             )
 
-        OnFetch s ->
+        OnFetch c ->
             ( Autocomplete
                 { state
-                    | suggestions = s
+                    | choices = c.choices
+                    , choicesLen = c.length
                     , isFetching = False
                 }
             , Cmd.none
@@ -110,7 +126,7 @@ update msg (Autocomplete state) =
                 { state
                     | selectedIndex =
                         Internal.calculateIndex
-                            (Result.withDefault [] state.suggestions)
+                            state.choicesLen
                             state.selectedIndex
                             keyDown
                 }
@@ -122,21 +138,41 @@ update msg (Autocomplete state) =
 -- Accessors
 
 
-query : Autocomplete e a -> String
-query (Autocomplete state) =
-    state.query
+viewState : Autocomplete a -> ViewState a
+viewState (Autocomplete s) =
+    { query = s.query
+    , choices = s.choices
+    , choicesLen = s.choicesLen
+    , selectedIndex = s.selectedIndex
+    , isFetching = s.isFetching
+    }
 
 
-suggestions : Autocomplete e a -> Result e (List a)
-suggestions (Autocomplete state) =
-    state.suggestions
+query : Autocomplete a -> String
+query (Autocomplete s) =
+    s.query
 
 
-isFetching : Autocomplete e a -> Bool
-isFetching (Autocomplete state) =
-    state.isFetching
+choices : Autocomplete a -> a
+choices (Autocomplete s) =
+    s.choices
 
 
-selectedIndex : Autocomplete e a -> Maybe Int
-selectedIndex (Autocomplete state) =
-    state.selectedIndex
+isFetching : Autocomplete a -> Bool
+isFetching (Autocomplete s) =
+    s.isFetching
+
+
+selectedIndex : Autocomplete a -> Maybe Int
+selectedIndex (Autocomplete s) =
+    s.selectedIndex
+
+
+isSelected : Maybe Int -> Int -> Bool
+isSelected selected index =
+    case selected of
+        Nothing ->
+            False
+
+        Just i ->
+            i == index

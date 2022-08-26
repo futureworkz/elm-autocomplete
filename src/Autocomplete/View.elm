@@ -7,7 +7,7 @@ import Internal exposing (KeyDown(..), Msg(..))
 import Json.Decode as JD
 
 
-events : (Msg e a -> msg) -> List (Attribute msg)
+events : (Msg a -> msg) -> List (Attribute msg)
 events tagger =
     List.map (Html.Attributes.map tagger)
         [ Events.onInput OnInput
