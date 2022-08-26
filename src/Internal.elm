@@ -18,7 +18,8 @@ type Msg a
 
 
 type alias Choices a =
-    { choices : a
+    { query : String
+    , choices : a
     , length : Int
     }
 

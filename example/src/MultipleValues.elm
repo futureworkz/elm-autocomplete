@@ -1,4 +1,4 @@
-module Main exposing (main)
+module MultipleValues exposing (main)
 
 import Autocomplete exposing (Autocomplete)
 import Autocomplete.View as AutocompleteView
@@ -20,7 +20,7 @@ main =
 
 type alias Model =
     { autocompleteState : Autocomplete (List String)
-    , selectedValue : Maybe String
+    , selectedValueList : List String
     }
 
 
@@ -67,7 +67,11 @@ fetcher query =
             else
                 List.filter (insensitiveStringContains query) dogs
     in
-    Task.succeed { choices = choices, length = List.length choices }
+    Task.succeed
+        { query = query
+        , choices = choices
+        , length = List.length choices
+        }
 
 
 
@@ -76,8 +80,8 @@ fetcher query =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init { choices = [], length = 0 } fetcher
-      , selectedValue = Nothing
+    ( { autocompleteState = Autocomplete.init { query = "", choices = [], length = 0 } fetcher
+      , selectedValueList = []
       }
     , Cmd.none
     )
@@ -100,14 +104,33 @@ update msg model =
                 { autocompleteState } =
                     model
 
-                choices =
-                    Autocomplete.choices autocompleteState
+                { choices, selectedIndex } =
+                    Autocomplete.viewState autocompleteState
 
                 selectedValue =
-                    Autocomplete.selectedIndex autocompleteState
+                    selectedIndex
                         |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+
+                selectedValueList =
+                    case selectedValue of
+                        Just v ->
+                            v :: model.selectedValueList
+
+                        Nothing ->
+                            model.selectedValueList
             in
-            ( { model | selectedValue = selectedValue }, Cmd.none )
+            ( { model
+                | selectedValueList = selectedValueList
+                , autocompleteState =
+                    Autocomplete.reset
+                        { query = ""
+                        , choices = []
+                        , length = 0
+                        }
+                        model.autocompleteState
+              }
+            , Cmd.none
+            )
 
 
 
@@ -117,7 +140,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     let
-        { selectedValue, autocompleteState } =
+        { autocompleteState } =
             model
 
         { query, choices, selectedIndex } =
@@ -130,9 +153,8 @@ view model =
                 }
     in
     Html.div []
-        [ Html.div [] [ Html.text <| "Selected Value: " ++ Maybe.withDefault "Nothing" selectedValue ]
-        , Html.input (inputEvents ++ [ Html.Attributes.value query ])
-            []
+        [ Html.div [] [ Html.text <| "Selected Value List: " ++ String.join ", " model.selectedValueList ]
+        , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
             if Autocomplete.isFetching autocompleteState then
                 [ Html.text "Fetching..." ]

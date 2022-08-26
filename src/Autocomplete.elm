@@ -8,6 +8,7 @@ module Autocomplete exposing
     , isFetching
     , isSelected
     , query
+    , reset
     , selectedIndex
     , update
     , viewState
@@ -55,7 +56,7 @@ type alias ViewState a =
 init : Choices a -> (String -> Task Never (Choices a)) -> Autocomplete a
 init initChoices fetcher =
     Autocomplete
-        { query = ""
+        { query = initChoices.query
         , choices = initChoices.choices
         , choicesLen = initChoices.length
         , selectedIndex = Nothing
@@ -114,14 +115,19 @@ update msg (Autocomplete state) =
             )
 
         OnFetch c ->
-            ( Autocomplete
-                { state
-                    | choices = c.choices
-                    , choicesLen = c.length
-                    , isFetching = False
-                }
-            , Cmd.none
-            )
+            -- Racing condition between multiple fetches
+            if c.query == state.query then
+                ( Autocomplete
+                    { state
+                        | choices = c.choices
+                        , choicesLen = c.length
+                        , isFetching = False
+                    }
+                , Cmd.none
+                )
+
+            else
+                ( Autocomplete state, Cmd.none )
 
         OnKeyDown keyDown ->
             ( Autocomplete
@@ -168,6 +174,11 @@ viewState (Autocomplete s) =
     , selectedIndex = s.selectedIndex
     , isFetching = s.isFetching
     }
+
+
+reset : Choices a -> Autocomplete a -> Autocomplete a
+reset c (Autocomplete s) =
+    init c s.fetcher
 
 
 query : Autocomplete a -> String
