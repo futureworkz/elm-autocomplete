@@ -19,17 +19,17 @@ main =
 
 
 type alias Model =
-    { autocompleteState : Autocomplete (List String)
+    { autocompleteState : Autocomplete String
     , selectedValue : Maybe String
     }
 
 
 type Msg
-    = OnAutocomplete (Autocomplete.Msg (List String))
+    = OnAutocomplete (Autocomplete.Msg String)
     | OnAutocompleteSelect
 
 
-fetcher : String -> Task Never (Autocomplete.Choices (List String))
+fetcher : String -> Task Never (Autocomplete.Choices String)
 fetcher query =
     let
         dogs =
@@ -70,7 +70,7 @@ fetcher query =
     Task.succeed
         { query = query
         , choices = choices
-        , length = List.length choices
+        , ignoreList = []
         }
 
 
@@ -80,7 +80,7 @@ fetcher query =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init { query = "", choices = [], length = 0 } fetcher
+    ( { autocompleteState = Autocomplete.init { query = "", choices = [], ignoreList = [] } fetcher
       , selectedValue = Nothing
       }
     , Cmd.none
@@ -117,9 +117,9 @@ update msg model =
                     Autocomplete.reset
                         { query = Maybe.withDefault query selectedValue
                         , choices = []
-                        , length = 0
+                        , ignoreList = []
                         }
-                        model.autocompleteState
+                        autocompleteState
               }
             , Cmd.none
             )

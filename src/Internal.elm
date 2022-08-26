@@ -19,8 +19,7 @@ type Msg a
 
 type alias Choices a =
     { query : String
-    , choices : a
-    , length : Int
+    , choices : List a
     }
 
 

@@ -10,6 +10,7 @@ module Autocomplete exposing
     , query
     , reset
     , selectedIndex
+    , setIgnoreList
     , update
     , viewState
     )
@@ -33,8 +34,8 @@ type Autocomplete a
 
 type alias State a =
     { query : String
-    , choices : a
-    , choicesLen : Int
+    , choices : List a
+    , ignoreList : List a
     , selectedIndex : Maybe Int
     , fetcher : String -> Task Never (Choices a)
     , isFetching : Bool
@@ -46,8 +47,7 @@ type alias State a =
 
 type alias ViewState a =
     { query : String
-    , choices : a
-    , choicesLen : Int
+    , choices : List a
     , selectedIndex : Maybe Int
     , isFetching : Bool
     }
@@ -58,7 +58,7 @@ init initChoices fetcher =
     Autocomplete
         { query = initChoices.query
         , choices = initChoices.choices
-        , choicesLen = initChoices.length
+        , ignoreList = []
         , selectedIndex = Nothing
         , fetcher = fetcher
         , isFetching = False
@@ -119,8 +119,7 @@ update msg (Autocomplete state) =
             if c.query == state.query then
                 ( Autocomplete
                     { state
-                        | choices = c.choices
-                        , choicesLen = c.length
+                        | choices = List.filter (\i -> not <| List.member i state.ignoreList) c.choices
                         , isFetching = False
                     }
                 , Cmd.none
@@ -134,7 +133,7 @@ update msg (Autocomplete state) =
                 { state
                     | selectedIndex =
                         Internal.calculateIndex
-                            state.choicesLen
+                            (List.length state.choices)
                             state.selectedIndex
                             keyDown
                 }
@@ -170,7 +169,6 @@ viewState : Autocomplete a -> ViewState a
 viewState (Autocomplete s) =
     { query = s.query
     , choices = s.choices
-    , choicesLen = s.choicesLen
     , selectedIndex = s.selectedIndex
     , isFetching = s.isFetching
     }
@@ -181,12 +179,17 @@ reset c (Autocomplete s) =
     init c s.fetcher
 
 
+setIgnoreList : List a -> Autocomplete a -> Autocomplete a
+setIgnoreList ignoreList (Autocomplete s) =
+    Autocomplete { s | ignoreList = ignoreList }
+
+
 query : Autocomplete a -> String
 query (Autocomplete s) =
     s.query
 
 
-choices : Autocomplete a -> a
+choices : Autocomplete a -> List a
 choices (Autocomplete s) =
     s.choices
 

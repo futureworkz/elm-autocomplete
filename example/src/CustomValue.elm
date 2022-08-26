@@ -3,7 +3,6 @@ module CustomValue exposing (main)
 import Autocomplete exposing (Autocomplete, choices)
 import Autocomplete.View as AutocompleteView
 import Browser
-import Dict exposing (Dict)
 import Html exposing (Attribute, Html)
 import Html.Attributes
 import Task exposing (Task)
@@ -20,65 +19,63 @@ main =
 
 
 type alias Model =
-    { autocompleteState : Autocomplete (Dict Int Dog) -- Int is Dog ID
-    , selectedValue : Maybe ( Int, Dog )
+    { autocompleteState : Autocomplete Animal
+    , selectedValue : Maybe Animal
     }
 
 
-type alias Dog =
-    { name : String
-    , age : Int
-    }
+type Animal
+    = Dog String
+    | Cat String
+    | Fish String
 
 
 type Msg
-    = OnAutocomplete (Autocomplete.Msg (Dict Int Dog))
+    = OnAutocomplete (Autocomplete.Msg Animal)
     | OnAutocompleteSelect
 
 
-fetcher : String -> Task Never (Autocomplete.Choices (Dict Int Dog))
+fetcher : String -> Task Never (Autocomplete.Choices Animal)
 fetcher query =
     let
-        dogs =
-            Dict.fromList
-                [ ( 1, { name = "Hunter", age = 2 } )
-                , ( 2, { name = "Polo", age = 3 } )
-                , ( 3, { name = "Loki", age = 2 } )
-                , ( 4, { name = "Angel", age = 4 } )
-                , ( 5, { name = "Scout", age = 1 } )
-                , ( 6, { name = "Lexi", age = 7 } )
-                , ( 7, { name = "Zara", age = 8 } )
-                , ( 8, { name = "Maya", age = 2 } )
-                , ( 9, { name = "Baby", age = 9 } )
-                , ( 10, { name = "Bud", age = 2 } )
-                , ( 11, { name = "Ella", age = 3 } )
-                , ( 12, { name = "Ace", age = 10 } )
-                , ( 13, { name = "Kahlua", age = 1 } )
-                , ( 14, { name = "Jake", age = 1 } )
-                , ( 15, { name = "Apollo", age = 6 } )
-                , ( 16, { name = "Sammy", age = 4 } )
-                , ( 17, { name = "Puppy", age = 3 } )
-                , ( 18, { name = "Gucci", age = 8 } )
-                , ( 19, { name = "Mac", age = 1 } )
-                , ( 20, { name = "Belle", age = 3 } )
-                ]
+        animals =
+            [ Dog "Hunter"
+            , Cat "Polo"
+            , Fish "Loki"
+            , Dog "Angel"
+            , Cat "Scout"
+            , Fish "Lexi"
+            , Dog "Zara"
+            , Cat "Maya"
+            , Fish "Baby"
+            , Dog "Bud"
+            , Cat "Ella"
+            , Fish "Ace"
+            , Dog "Kahlua"
+            , Cat "Jake"
+            , Fish "Apollo"
+            , Dog "Sammy"
+            , Cat "Puppy"
+            , Fish "Gucci"
+            , Dog "Mac"
+            , Cat "Belle"
+            ]
 
-        insensitiveStringContains : String -> Int -> Dog -> Bool
-        insensitiveStringContains q _ dog =
-            String.contains (String.toLower q) (String.toLower dog.name)
+        insensitiveStringContains : String -> Animal -> Bool
+        insensitiveStringContains q animal =
+            String.contains (String.toLower q) (String.toLower <| getName animal)
 
-        choices : Dict Int Dog
+        choices : List Animal
         choices =
             if String.length query == 0 then
-                Dict.empty
+                []
 
             else
-                Dict.filter (insensitiveStringContains query) dogs
+                List.filter (insensitiveStringContains query) animals
     in
     Task.succeed
         { query = query
         , choices = choices
-        , length = List.length <| Dict.keys choices
         }
 
 
@@ -88,7 +85,7 @@ fetcher query =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init { query = "", choices = Dict.empty, length = 0 } fetcher
+    ( { autocompleteState = Autocomplete.init { query = "", choices = [] } fetcher
       , selectedValue = Nothing
       }
     , Cmd.none
@@ -115,22 +112,22 @@ update msg model =
                 { choices, query, selectedIndex } =
                     Autocomplete.viewState autocompleteState
 
-                choiceList =
-                    Dict.toList choices
-
                 selectedValue =
                     selectedIndex
-                        |> Maybe.andThen (\i -> List.drop i choiceList |> List.head)
+                        |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+
+                resetedAutocompleteState =
+                    Autocomplete.reset
+                        { query = Maybe.withDefault query <| Maybe.map getName selectedValue
+                        , choices = []
+                        }
+                        autocompleteState
             in
             ( { model
                 | selectedValue = selectedValue
                 , autocompleteState =
-                    Autocomplete.reset
-                        { query = Maybe.withDefault query <| Maybe.map (Tuple.second >> .name) selectedValue
-                        , choices = Dict.empty
-                        , length = 0
-                        }
-                        model.autocompleteState
+                    resetedAutocompleteState
+                        |> Autocomplete.setIgnoreList (Maybe.withDefault [] <| Maybe.map List.singleton selectedValue)
               }
             , Cmd.none
             )
@@ -159,7 +156,7 @@ view model =
         [ Html.div []
             [ Html.text <|
                 "Selected Value: "
-                    ++ (Maybe.map toString selectedValue |> Maybe.withDefault "Nothing")
+                    ++ (Maybe.map getAnimalLabel selectedValue |> Maybe.withDefault "Nothing")
             ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
@@ -167,16 +164,15 @@ view model =
                 [ Html.text "Fetching..." ]
 
             else if String.length query > 0 then
-                Dict.toList choices
-                    |> List.indexedMap (renderChoice choiceEvents selectedIndex)
+                List.indexedMap (renderChoice choiceEvents selectedIndex) choices
 
             else
                 [ Html.text "" ]
         ]
 
 
-renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> ( Int, Dog ) -> Html Msg
-renderChoice events selectedIndex index ( id, dog ) =
+renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> Animal -> Html Msg
+renderChoice events selectedIndex index animal =
     Html.div
         (if Autocomplete.isSelected selectedIndex index then
             Html.Attributes.style "backgroundColor" "#EEE" :: events index
@@ -184,9 +180,34 @@ renderChoice events selectedIndex index ( id, dog ) =
          else
             Html.Attributes.style "backgroundColor" "#FFF" :: events index
         )
-        [ Html.text <| toString ( id, dog ) ]
+        [ Html.text <| getAnimalLabel animal ]
 
 
-toString : ( Int, Dog ) -> String
-toString ( id, dog ) =
-    dog.name ++ " #" ++ String.fromInt id
+
+-- Helper
+
+
+getName : Animal -> String
+getName animal =
+    case animal of
+        Dog name ->
+            name
+
+        Cat name ->
+            name
+
+        Fish name ->
+            name
+
+
+getAnimalLabel : Animal -> String
+getAnimalLabel animal =
+    case animal of
+        Dog name ->
+            "Dog: " ++ name
+
+        Cat name ->
+            "Cat: " ++ name
+
+        Fish name ->
+            "Fish: " ++ name
