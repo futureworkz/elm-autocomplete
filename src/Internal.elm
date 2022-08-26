@@ -12,6 +12,7 @@ type Msg a
     | DoFetch String
     | OnFetch (Choices a)
     | OnKeyDown KeyDown
+    | OnMouseDown Int
     | OnMouseUp Int
     | DebounceMsg Debounce.Msg
 

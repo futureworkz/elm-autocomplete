@@ -37,6 +37,7 @@ type alias State a =
     , selectedIndex : Maybe Int
     , fetcher : String -> Task Never (Choices a)
     , isFetching : Bool
+    , mouseDownIndex : Maybe Int
     , debounceConfig : Debounce.Config (Msg a)
     , debounceState : Debounce String
     }
@@ -60,6 +61,7 @@ init initChoices fetcher =
         , selectedIndex = Nothing
         , fetcher = fetcher
         , isFetching = False
+        , mouseDownIndex = Nothing
         , debounceConfig =
             { strategy = Debounce.later 200
             , transform = DebounceMsg
@@ -133,11 +135,25 @@ update msg (Autocomplete state) =
             , Cmd.none
             )
 
-        OnMouseUp index ->
-            -- TODO Probably need to check if it is out of range??? isFetching??
-            ( Autocomplete { state | selectedIndex = Just index }
+        OnMouseDown index ->
+            ( Autocomplete { state | mouseDownIndex = Just index }
             , Cmd.none
             )
+
+        OnMouseUp upIndex ->
+            -- Check that mouse down and up have the same index
+            -- otherwise ignore this event
+            if state.mouseDownIndex == Just upIndex then
+                ( Autocomplete
+                    { state
+                        | selectedIndex = Just upIndex
+                        , mouseDownIndex = Nothing
+                    }
+                , Cmd.none
+                )
+
+            else
+                ( Autocomplete state, Cmd.none )
 
 
 

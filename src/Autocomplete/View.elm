@@ -43,12 +43,12 @@ choiceEvents mapper index =
             mapper
     in
     -- We cannot use onClick twice
-    -- so we use onMouseUp to send to Autocomplete first
+    -- so we use onMouseDown/Up to send to Autocomplete first
     -- and then onClick will send to user's app
-    -- onMouseUp will always fire before onClick
+    -- onMouseDown/Up will always fire before onClick
     -- See https://www.w3schools.com/jsref/event_onmouseup.asp
-    -- TODO Check onMouseDown to match onMouseUp
-    [ Events.onMouseUp <| mapHtml <| OnMouseUp index
+    [ Events.onMouseDown <| mapHtml <| OnMouseDown index
+    , Events.onMouseUp <| mapHtml <| OnMouseUp index
     , Events.onClick onSelect
     ]
 
