@@ -20,6 +20,7 @@ main =
 
 type alias Model =
     { autocompleteState : Autocomplete (List String)
+    , selectedValue : Maybe String
     }
 
 
@@ -76,6 +77,7 @@ fetcher query =
 init : ( Model, Cmd Msg )
 init =
     ( { autocompleteState = Autocomplete.init { choices = [], length = 0 } fetcher
+      , selectedValue = Nothing
       }
     , Cmd.none
     )
@@ -94,8 +96,18 @@ update msg model =
             )
 
         OnAutocompleteSelect ->
-            -- TODO Get the selected value from model.autocompleteState
-            ( model, Cmd.none )
+            let
+                { autocompleteState } =
+                    model
+
+                choices =
+                    Autocomplete.choices autocompleteState
+
+                selectedValue =
+                    Autocomplete.selectedIndex autocompleteState
+                        |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+            in
+            ( { model | selectedValue = selectedValue }, Cmd.none )
 
 
 
@@ -105,7 +117,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     let
-        { autocompleteState } =
+        { selectedValue, autocompleteState } =
             model
 
         { query, choices, selectedIndex } =
@@ -118,7 +130,8 @@ view model =
                 }
     in
     Html.div []
-        [ Html.input (inputEvents ++ [ Html.Attributes.value query ])
+        [ Html.div [] [ Html.text <| "Selected Value: " ++ Maybe.withDefault "Nothing" selectedValue ]
+        , Html.input (inputEvents ++ [ Html.Attributes.value query ])
             []
         , Html.div [] <|
             if Autocomplete.isFetching autocompleteState then
