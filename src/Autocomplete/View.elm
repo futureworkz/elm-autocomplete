@@ -1,4 +1,21 @@
-module Autocomplete.View exposing (events)
+module Autocomplete.View exposing
+    ( Events, EventMapper
+    , events
+    )
+
+{-| Autocomplete View
+
+
+# Type
+
+@docs Events, EventMapper
+
+
+# Attributes
+
+@docs events
+
+-}
 
 import Html exposing (Attribute)
 import Html.Events as Events
@@ -6,18 +23,24 @@ import Internal exposing (KeyDown(..), Msg(..))
 import Json.Decode as JD
 
 
+{-| Record to hold the events to be attached for input and every autocomplete choice
+-}
 type alias Events msg =
     { inputEvents : List (Attribute msg)
     , choiceEvents : Int -> List (Attribute msg)
     }
 
 
+{-| Map Autocomplete Msg into your app's msg and also the msg to send when user selects a choice
+-}
 type alias EventMapper a msg =
     { onSelect : msg
     , mapHtml : Msg a -> msg
     }
 
 
+{-| Returns the events to be attached for input and every autocomplete choice
+-}
 events : EventMapper a msg -> Events msg
 events mapper =
     { inputEvents = inputEvents mapper

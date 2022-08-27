@@ -1,35 +1,61 @@
 module Autocomplete exposing
-    ( Autocomplete
-    , Choices
-    , Msg
-    , ViewState
-    , ViewStatus(..)
-    , choices
+    ( Autocomplete, ViewState, ViewStatus(..), Choices, Msg
     , init
-    , isSelected
-    , query
-    , reset
-    , selectedIndex
-    , selectedValue
     , update
-    , viewState
+    , reset, selectedValue
+    , viewState, query, choices, selectedIndex, isSelected
     )
+
+{-| Autocomplete Core which contains the main logic to handle auto-complete.
+
+
+# Type
+
+@docs Autocomplete, ViewState, ViewStatus, Choices, Msg
+
+
+# Initialize
+
+@docs init
+
+
+# Update
+
+@docs update
+
+
+# Helpers
+
+@docs reset, selectedValue
+
+
+# Accessors
+
+@docs viewState, query, choices, selectedIndex, isSelected
+
+-}
 
 import Debounce exposing (Debounce)
 import Internal exposing (KeyDown(..), Msg(..))
 import Task exposing (Task)
 
 
+{-| The opaque type of Autocomplete
+-}
+type Autocomplete a
+    = Autocomplete (State a)
+
+
+{-| Opaque type of Autocomplete internal msg
+-}
 type alias Msg a =
     Internal.Msg a
 
 
+{-| Record to hold the query and choices for fetching and displaying
+-}
 type alias Choices a =
     Internal.Choices a
-
-
-type Autocomplete a
-    = Autocomplete (State a)
 
 
 type alias State a =
@@ -45,6 +71,8 @@ type alias State a =
     }
 
 
+{-| Record to expose common values of Autocomplete to be used for display
+-}
 type alias ViewState a =
     { query : String
     , choices : List a
@@ -54,6 +82,8 @@ type alias ViewState a =
     }
 
 
+{-| A useful union type for rendering the correct view for each state of Autocomplete
+-}
 type ViewStatus
     = NotFetched
     | Fetching
@@ -61,6 +91,8 @@ type ViewStatus
     | FetchedChoices
 
 
+{-| Initialize the Autocomplete
+-}
 init : Choices a -> (Choices a -> Task String (Choices a)) -> Autocomplete a
 init initChoices fetcher =
     Autocomplete
@@ -79,6 +111,8 @@ init initChoices fetcher =
         }
 
 
+{-| Update the Autocomplete state
+-}
 update : Msg a -> Autocomplete a -> ( Autocomplete a, Cmd (Msg a) )
 update msg (Autocomplete state) =
     case msg of
@@ -172,11 +206,15 @@ update msg (Autocomplete state) =
 -- Helpers
 
 
+{-| Reset the Autocomplete State
+-}
 reset : Choices a -> Autocomplete a -> Autocomplete a
 reset c (Autocomplete s) =
     init c s.fetcher
 
 
+{-| Returns the selectedValue
+-}
 selectedValue : Autocomplete a -> Maybe a
 selectedValue (Autocomplete s) =
     s.selectedIndex
@@ -188,6 +226,8 @@ selectedValue (Autocomplete s) =
 -- Accessors
 
 
+{-| Returns the ViewState of the Autocomplete
+-}
 viewState : Autocomplete a -> ViewState a
 viewState (Autocomplete s) =
     { query = s.query
@@ -198,21 +238,29 @@ viewState (Autocomplete s) =
     }
 
 
+{-| Returns the query of the Autocomplete
+-}
 query : Autocomplete a -> String
 query (Autocomplete s) =
     s.query
 
 
+{-| Returns the current list of choices
+-}
 choices : Autocomplete a -> List a
 choices (Autocomplete s) =
     s.choices
 
 
+{-| Returns the selected index of the Autocomplete
+-}
 selectedIndex : Autocomplete a -> Maybe Int
 selectedIndex (Autocomplete s) =
     s.selectedIndex
 
 
+{-| Helper function to calculate if an index is selected
+-}
 isSelected : Maybe Int -> Int -> Bool
 isSelected selected index =
     case selected of
