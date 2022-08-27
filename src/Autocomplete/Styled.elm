@@ -3,7 +3,7 @@ module Autocomplete.Styled exposing
     , events
     )
 
-{-| Autocomplete View
+{-| Autocomplete.Styled exposes [HTML.Styled](https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Css) events to be attached for input and every autocomplete choice.
 
 
 # Type

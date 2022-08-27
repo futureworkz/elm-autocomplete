@@ -1,27 +1,25 @@
 module Autocomplete exposing
     ( Autocomplete, ViewState, ViewStatus(..), Choices, Msg
-    , init
-    , update
+    , init, update
     , reset, selectedValue
     , viewState, query, choices, selectedIndex, isSelected
     )
 
-{-| Autocomplete Core which contains the main logic to handle auto-complete.
+{-| Autocomplete contains the main logic to handle auto-complete.
+The state and logic of Autocomplete should reside within your model.
+Please refer to our examples to see how it all linked up.
+
+To render the Autocomplete, please refer to `Autocomplete.View` or `Autocomplete.Styled`.
 
 
-# Type
+# Types
 
 @docs Autocomplete, ViewState, ViewStatus, Choices, Msg
 
 
-# Initialize
+# State Management
 
-@docs init
-
-
-# Update
-
-@docs update
+@docs init, update
 
 
 # Helpers

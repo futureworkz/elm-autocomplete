@@ -3,7 +3,7 @@ module Autocomplete.View exposing
     , events
     )
 
-{-| Autocomplete View
+{-| Autocomplete.View exposes HTML events to be attached for input and every autocomplete choice.
 
 
 # Type
