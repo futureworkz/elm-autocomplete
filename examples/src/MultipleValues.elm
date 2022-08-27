@@ -100,12 +100,8 @@ update msg model =
                 { autocompleteState } =
                     model
 
-                { choices, selectedIndex } =
-                    Autocomplete.viewState autocompleteState
-
                 selectedValue =
-                    selectedIndex
-                        |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+                    Autocomplete.selectedValue autocompleteState
 
                 selectedValueList =
                     case selectedValue of
@@ -121,7 +117,9 @@ update msg model =
                     Autocomplete.reset
                         { query = ""
                         , choices = []
-                        , ignoreList = selectedValueList -- Add selected values to ignore list to prevent it from display in the dropdown
+
+                        -- Add selected values to ignore list to prevent it from display in the dropdown
+                        , ignoreList = selectedValueList
                         }
                         autocompleteState
               }
@@ -139,7 +137,7 @@ view model =
         { autocompleteState } =
             model
 
-        { query, choices, selectedIndex } =
+        { query, choices, selectedIndex, status } =
             Autocomplete.viewState autocompleteState
 
         { inputEvents, choiceEvents } =
@@ -152,14 +150,22 @@ view model =
         [ Html.div [] [ Html.text <| "Selected Value List: " ++ String.join ", " model.selectedValueList ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
-            if Autocomplete.isFetching autocompleteState then
-                [ Html.text "Fetching..." ]
+            case status of
+                Autocomplete.NotFetched ->
+                    [ Html.text "" ]
 
-            else if String.length query > 0 then
-                List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+                Autocomplete.Fetching ->
+                    [ Html.text "Fetching..." ]
 
-            else
-                [ Html.text "" ]
+                Autocomplete.Error s ->
+                    [ Html.text s ]
+
+                Autocomplete.FetchedChoices ->
+                    if String.length query > 0 then
+                        List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+
+                    else
+                        [ Html.text "" ]
         ]
 
 

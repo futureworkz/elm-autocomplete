@@ -100,12 +100,11 @@ update msg model =
                 { autocompleteState } =
                     model
 
-                { choices, query, selectedIndex } =
-                    Autocomplete.viewState autocompleteState
+                query =
+                    Autocomplete.query autocompleteState
 
                 selectedValue =
-                    selectedIndex
-                        |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+                    Autocomplete.selectedValue autocompleteState
             in
             ( { model
                 | selectedValue = selectedValue
@@ -131,7 +130,7 @@ view model =
         { selectedValue, autocompleteState } =
             model
 
-        { query, choices, selectedIndex } =
+        { query, choices, selectedIndex, status } =
             Autocomplete.viewState autocompleteState
 
         { inputEvents, choiceEvents } =
@@ -144,14 +143,22 @@ view model =
         [ Html.div [] [ Html.text <| "Selected Value: " ++ Maybe.withDefault "Nothing" selectedValue ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
-            if Autocomplete.isFetching autocompleteState then
-                [ Html.text "Fetching..." ]
+            case status of
+                Autocomplete.NotFetched ->
+                    [ Html.text "" ]
 
-            else if String.length query > 0 then
-                List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+                Autocomplete.Fetching ->
+                    [ Html.text "Fetching..." ]
 
-            else
-                [ Html.text "" ]
+                Autocomplete.Error s ->
+                    [ Html.text s ]
+
+                Autocomplete.FetchedChoices ->
+                    if String.length query > 0 then
+                        List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+
+                    else
+                        [ Html.text "" ]
         ]
 
 

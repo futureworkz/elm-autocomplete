@@ -37,9 +37,9 @@ type Msg
 
 fetcher : Autocomplete.Choices Animal -> Task String (Autocomplete.Choices Animal)
 fetcher lastChoices =
-    if String.length lastChoices.query == 0 then
+    if String.length lastChoices.query < 2 then
         -- Simple validation
-        Task.fail "EMPTY_INPUT"
+        Task.fail "Enter at least 2 characters to search"
 
     else
         -- Passed validation, fetch data
@@ -70,18 +70,14 @@ fetcher lastChoices =
 
             insensitiveStringContains : String -> Animal -> Bool
             insensitiveStringContains q animal =
-                String.contains (String.toLower q) (String.toLower <| getName animal)
+                String.contains (String.toLower q) (String.toLower <| animalName animal)
 
             choiceList : List Animal
             choiceList =
-                if String.length lastChoices.query == 0 then
-                    []
-
-                else
-                    List.filter (insensitiveStringContains lastChoices.query) animals
+                List.filter (insensitiveStringContains lastChoices.query) animals
         in
         if List.isEmpty choiceList then
-            Task.fail "MISSING_ANIMAL"
+            Task.fail "Error: Animal not found!"
 
         else
             Task.succeed { lastChoices | choices = choiceList }
@@ -117,18 +113,17 @@ update msg model =
                 { autocompleteState } =
                     model
 
-                { choices, query, selectedIndex } =
-                    Autocomplete.viewState autocompleteState
+                query =
+                    Autocomplete.query autocompleteState
 
                 selectedValue =
-                    selectedIndex
-                        |> Maybe.andThen (\i -> List.drop i choices |> List.head)
+                    Autocomplete.selectedValue autocompleteState
             in
             ( { model
                 | selectedValue = selectedValue
                 , autocompleteState =
                     Autocomplete.reset
-                        { query = Maybe.withDefault query <| Maybe.map getName selectedValue
+                        { query = Maybe.withDefault query <| Maybe.map animalName selectedValue
                         , choices = []
                         , ignoreList = Maybe.withDefault [] <| Maybe.map List.singleton selectedValue
                         }
@@ -161,18 +156,21 @@ view model =
         [ Html.div []
             [ Html.text <|
                 "Selected Value: "
-                    ++ (Maybe.map getAnimalLabel selectedValue |> Maybe.withDefault "Nothing")
+                    ++ (Maybe.map animalLabel selectedValue |> Maybe.withDefault "Nothing")
             ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
             case status of
-                Autocomplete.Error code ->
-                    [ Html.text <| toErrorString code ]
+                Autocomplete.NotFetched ->
+                    [ Html.text "" ]
 
                 Autocomplete.Fetching ->
                     [ Html.text "Fetching..." ]
 
-                Autocomplete.Ready ->
+                Autocomplete.Error s ->
+                    [ Html.text s ]
+
+                Autocomplete.FetchedChoices ->
                     List.indexedMap (renderChoice choiceEvents selectedIndex) choices
         ]
 
@@ -186,15 +184,15 @@ renderChoice events selectedIndex index animal =
          else
             Html.Attributes.style "backgroundColor" "#FFF" :: events index
         )
-        [ Html.text <| getAnimalLabel animal ]
+        [ Html.text <| animalLabel animal ]
 
 
 
 -- Helper
 
 
-getName : Animal -> String
-getName animal =
+animalName : Animal -> String
+animalName animal =
     case animal of
         Dog name ->
             name
@@ -206,8 +204,8 @@ getName animal =
             name
 
 
-getAnimalLabel : Animal -> String
-getAnimalLabel animal =
+animalLabel : Animal -> String
+animalLabel animal =
     case animal of
         Dog name ->
             "Dog: " ++ name
@@ -217,16 +215,3 @@ getAnimalLabel animal =
 
         Fish name ->
             "Fish: " ++ name
-
-
-toErrorString : String -> String
-toErrorString code =
-    case code of
-        "EMPTY_INPUT" ->
-            "Validation Error: Type the name of animal you are searching for..."
-
-        "MISSING_ANIMAL" ->
-            "Data Error: Animal not found!"
-
-        _ ->
-            "Missing error code!"

@@ -6,11 +6,11 @@ module Autocomplete exposing
     , ViewStatus(..)
     , choices
     , init
-    , isFetching
     , isSelected
     , query
     , reset
     , selectedIndex
+    , selectedValue
     , update
     , viewState
     )
@@ -37,8 +37,7 @@ type alias State a =
     , choices : List a
     , ignoreList : List a
     , fetcher : Choices a -> Task String (Choices a)
-    , isFetching : Bool
-    , error : Maybe String
+    , viewStatus : ViewStatus
     , selectedIndex : Maybe Int
     , mouseDownIndex : Maybe Int
     , debounceConfig : Debounce.Config (Msg a)
@@ -49,15 +48,17 @@ type alias State a =
 type alias ViewState a =
     { query : String
     , choices : List a
+    , ignoreList : List a
     , selectedIndex : Maybe Int
     , status : ViewStatus
     }
 
 
 type ViewStatus
-    = Error String
+    = NotFetched
     | Fetching
-    | Ready
+    | Error String
+    | FetchedChoices
 
 
 init : Choices a -> (Choices a -> Task String (Choices a)) -> Autocomplete a
@@ -67,8 +68,7 @@ init initChoices fetcher =
         , choices = initChoices.choices
         , ignoreList = initChoices.ignoreList
         , fetcher = fetcher
-        , isFetching = False
-        , error = Nothing
+        , viewStatus = NotFetched
         , selectedIndex = Nothing
         , mouseDownIndex = Nothing
         , debounceConfig =
@@ -90,8 +90,7 @@ update msg (Autocomplete state) =
             ( Autocomplete
                 { state
                     | query = q
-                    , error = Nothing
-                    , isFetching = True
+                    , viewStatus = Fetching
                     , selectedIndex = Nothing
                     , debounceState = debounceState
                 }
@@ -119,7 +118,7 @@ update msg (Autocomplete state) =
         OnFetch result ->
             case result of
                 Err s ->
-                    ( Autocomplete { state | error = Just s }, Cmd.none )
+                    ( Autocomplete { state | viewStatus = Error s }, Cmd.none )
 
                 Ok c ->
                     if c.query == state.query then
@@ -130,7 +129,7 @@ update msg (Autocomplete state) =
                                         (\i -> not <| List.member i c.ignoreList)
                                         c.choices
                                 , ignoreList = c.ignoreList
-                                , isFetching = False
+                                , viewStatus = FetchedChoices
                             }
                         , Cmd.none
                         )
@@ -170,6 +169,22 @@ update msg (Autocomplete state) =
 
 
 
+-- Helpers
+
+
+reset : Choices a -> Autocomplete a -> Autocomplete a
+reset c (Autocomplete s) =
+    init c s.fetcher
+
+
+selectedValue : Autocomplete a -> Maybe a
+selectedValue (Autocomplete s) =
+    s.selectedIndex
+        |> Maybe.map (\i -> List.drop i s.choices)
+        |> Maybe.andThen List.head
+
+
+
 -- Accessors
 
 
@@ -177,23 +192,10 @@ viewState : Autocomplete a -> ViewState a
 viewState (Autocomplete s) =
     { query = s.query
     , choices = s.choices
+    , ignoreList = s.ignoreList
     , selectedIndex = s.selectedIndex
-    , status =
-        case ( s.error, s.isFetching ) of
-            ( Just e, _ ) ->
-                Error e
-
-            ( _, True ) ->
-                Fetching
-
-            _ ->
-                Ready
+    , status = s.viewStatus
     }
-
-
-reset : Choices a -> Autocomplete a -> Autocomplete a
-reset c (Autocomplete s) =
-    init c s.fetcher
 
 
 query : Autocomplete a -> String
@@ -204,11 +206,6 @@ query (Autocomplete s) =
 choices : Autocomplete a -> List a
 choices (Autocomplete s) =
     s.choices
-
-
-isFetching : Autocomplete a -> Bool
-isFetching (Autocomplete s) =
-    s.isFetching
 
 
 selectedIndex : Autocomplete a -> Maybe Int
