@@ -1,7 +1,7 @@
 {
   "type": "package",
   "name": "futureworkz/elm-autocomplete",
-  "summary": "Elm HTML Input with autocomplete suggestions",
+  "summary": "Elm Autocomplete with async and debouncing",
   "license": "MIT",
   "version": "1.0.0",
   "exposed-modules": [

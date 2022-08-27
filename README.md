@@ -1,6 +1,6 @@
 # Elm Autocomplete
 
-Elm HTML Input with autocomplete suggestions.
+Elm Autocomplete with async and debouncing.
 
 This package provides the core autocomplete logic and state but does *NOT* provide any view functions to display the autocomplete. 
 
