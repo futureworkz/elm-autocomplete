@@ -1,4 +1,4 @@
-module CustomValue exposing (main)
+module AsyncFetcher exposing (main)
 
 import Autocomplete exposing (Autocomplete, choices)
 import Autocomplete.View as AutocompleteView
