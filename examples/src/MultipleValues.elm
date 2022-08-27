@@ -29,8 +29,8 @@ type Msg
     | OnAutocompleteSelect
 
 
-fetcher : String -> Task Never (Autocomplete.Choices String)
-fetcher query =
+fetcher : Autocomplete.Choices String -> Task String (Autocomplete.Choices String)
+fetcher lastChoices =
     let
         dogs =
             [ "Hunter"
@@ -59,18 +59,15 @@ fetcher query =
         insensitiveStringContains a b =
             String.contains (String.toLower a) (String.toLower b)
 
-        choices : List String
-        choices =
-            if String.length query == 0 then
+        choiceList : List String
+        choiceList =
+            if String.length lastChoices.query == 0 then
                 []
 
             else
-                List.filter (insensitiveStringContains query) dogs
+                List.filter (insensitiveStringContains lastChoices.query) dogs
     in
-    Task.succeed
-        { query = query
-        , choices = choices
-        }
+    Task.succeed { lastChoices | choices = choiceList }
 
 
 
@@ -79,7 +76,7 @@ fetcher query =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init { query = "", choices = [] } fetcher
+    ( { autocompleteState = Autocomplete.init { query = "", choices = [], ignoreList = [] } fetcher
       , selectedValueList = []
       }
     , Cmd.none
@@ -121,8 +118,12 @@ update msg model =
             ( { model
                 | selectedValueList = selectedValueList
                 , autocompleteState =
-                    Autocomplete.reset { query = "", choices = [] } autocompleteState
-                        |> Autocomplete.setIgnoreList selectedValueList
+                    Autocomplete.reset
+                        { query = ""
+                        , choices = []
+                        , ignoreList = selectedValueList -- Add selected values to ignore list to prevent it from display in the dropdown
+                        }
+                        autocompleteState
               }
             , Cmd.none
             )

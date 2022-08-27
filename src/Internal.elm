@@ -9,8 +9,8 @@ import Debounce
 
 type Msg a
     = OnInput String
-    | DoFetch String
-    | OnFetch (Choices a)
+    | DoFetch (Choices a)
+    | OnFetch (Result String (Choices a))
     | OnKeyDown KeyDown
     | OnMouseDown Int
     | OnMouseUp Int
@@ -20,6 +20,7 @@ type Msg a
 type alias Choices a =
     { query : String
     , choices : List a
+    , ignoreList : List a
     }
 
 

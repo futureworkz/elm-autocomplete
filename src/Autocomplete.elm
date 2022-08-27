@@ -3,6 +3,7 @@ module Autocomplete exposing
     , Choices
     , Msg
     , ViewState
+    , ViewStatus(..)
     , choices
     , init
     , isFetching
@@ -10,7 +11,6 @@ module Autocomplete exposing
     , query
     , reset
     , selectedIndex
-    , setIgnoreList
     , update
     , viewState
     )
@@ -36,9 +36,10 @@ type alias State a =
     { query : String
     , choices : List a
     , ignoreList : List a
-    , selectedIndex : Maybe Int
-    , fetcher : String -> Task Never (Choices a)
+    , fetcher : Choices a -> Task String (Choices a)
     , isFetching : Bool
+    , error : Maybe String
+    , selectedIndex : Maybe Int
     , mouseDownIndex : Maybe Int
     , debounceConfig : Debounce.Config (Msg a)
     , debounceState : Debounce String
@@ -49,19 +50,26 @@ type alias ViewState a =
     { query : String
     , choices : List a
     , selectedIndex : Maybe Int
-    , isFetching : Bool
+    , status : ViewStatus
     }
 
 
-init : Choices a -> (String -> Task Never (Choices a)) -> Autocomplete a
+type ViewStatus
+    = Error String
+    | Fetching
+    | Ready
+
+
+init : Choices a -> (Choices a -> Task String (Choices a)) -> Autocomplete a
 init initChoices fetcher =
     Autocomplete
         { query = initChoices.query
         , choices = initChoices.choices
-        , ignoreList = []
-        , selectedIndex = Nothing
+        , ignoreList = initChoices.ignoreList
         , fetcher = fetcher
         , isFetching = False
+        , error = Nothing
+        , selectedIndex = Nothing
         , mouseDownIndex = Nothing
         , debounceConfig =
             { strategy = Debounce.later 200
@@ -77,14 +85,12 @@ update msg (Autocomplete state) =
         OnInput q ->
             let
                 ( debounceState, debounceCmd ) =
-                    Debounce.push
-                        state.debounceConfig
-                        q
-                        state.debounceState
+                    Debounce.push state.debounceConfig q state.debounceState
             in
             ( Autocomplete
                 { state
                     | query = q
+                    , error = Nothing
                     , isFetching = True
                     , selectedIndex = Nothing
                     , debounceState = debounceState
@@ -96,7 +102,7 @@ update msg (Autocomplete state) =
             let
                 doFetchCmd : String -> Cmd (Msg a)
                 doFetchCmd s =
-                    Task.perform DoFetch <| Task.succeed s
+                    Task.perform DoFetch <| Task.succeed { query = s, choices = state.choices, ignoreList = state.ignoreList }
 
                 ( debounceState, debounceCmd ) =
                     Debounce.update
@@ -105,28 +111,32 @@ update msg (Autocomplete state) =
                         debouceMsg
                         state.debounceState
             in
-            ( Autocomplete { state | debounceState = debounceState }
-            , debounceCmd
-            )
+            ( Autocomplete { state | debounceState = debounceState }, debounceCmd )
 
-        DoFetch s ->
-            ( Autocomplete state
-            , Task.perform OnFetch <| state.fetcher s
-            )
+        DoFetch c ->
+            ( Autocomplete state, Task.attempt OnFetch <| state.fetcher c )
 
-        OnFetch c ->
-            -- Racing condition between multiple fetches
-            if c.query == state.query then
-                ( Autocomplete
-                    { state
-                        | choices = List.filter (\i -> not <| List.member i state.ignoreList) c.choices
-                        , isFetching = False
-                    }
-                , Cmd.none
-                )
+        OnFetch result ->
+            case result of
+                Err s ->
+                    ( Autocomplete { state | error = Just s }, Cmd.none )
 
-            else
-                ( Autocomplete state, Cmd.none )
+                Ok c ->
+                    if c.query == state.query then
+                        ( Autocomplete
+                            { state
+                                | choices =
+                                    List.filter
+                                        (\i -> not <| List.member i c.ignoreList)
+                                        c.choices
+                                , ignoreList = c.ignoreList
+                                , isFetching = False
+                            }
+                        , Cmd.none
+                        )
+
+                    else
+                        ( Autocomplete state, Cmd.none )
 
         OnKeyDown keyDown ->
             ( Autocomplete
@@ -141,9 +151,7 @@ update msg (Autocomplete state) =
             )
 
         OnMouseDown index ->
-            ( Autocomplete { state | mouseDownIndex = Just index }
-            , Cmd.none
-            )
+            ( Autocomplete { state | mouseDownIndex = Just index }, Cmd.none )
 
         OnMouseUp upIndex ->
             -- Check that mouse down and up have the same index
@@ -170,18 +178,22 @@ viewState (Autocomplete s) =
     { query = s.query
     , choices = s.choices
     , selectedIndex = s.selectedIndex
-    , isFetching = s.isFetching
+    , status =
+        case ( s.error, s.isFetching ) of
+            ( Just e, _ ) ->
+                Error e
+
+            ( _, True ) ->
+                Fetching
+
+            _ ->
+                Ready
     }
 
 
 reset : Choices a -> Autocomplete a -> Autocomplete a
 reset c (Autocomplete s) =
     init c s.fetcher
-
-
-setIgnoreList : List a -> Autocomplete a -> Autocomplete a
-setIgnoreList ignoreList (Autocomplete s) =
-    Autocomplete { s | ignoreList = ignoreList }
 
 
 query : Autocomplete a -> String

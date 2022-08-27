@@ -35,48 +35,56 @@ type Msg
     | OnAutocompleteSelect
 
 
-fetcher : String -> Task Never (Autocomplete.Choices Animal)
-fetcher query =
-    let
-        animals =
-            [ Dog "Hunter"
-            , Cat "Polo"
-            , Fish "Loki"
-            , Dog "Angel"
-            , Cat "Scout"
-            , Fish "Lexi"
-            , Dog "Zara"
-            , Cat "Maya"
-            , Fish "Baby"
-            , Dog "Bud"
-            , Cat "Ella"
-            , Fish "Ace"
-            , Dog "Kahlua"
-            , Cat "Jake"
-            , Fish "Apollo"
-            , Dog "Sammy"
-            , Cat "Puppy"
-            , Fish "Gucci"
-            , Dog "Mac"
-            , Cat "Belle"
-            ]
+fetcher : Autocomplete.Choices Animal -> Task String (Autocomplete.Choices Animal)
+fetcher lastChoices =
+    if String.length lastChoices.query == 0 then
+        -- Simple validation
+        Task.fail "EMPTY_INPUT"
 
-        insensitiveStringContains : String -> Animal -> Bool
-        insensitiveStringContains q animal =
-            String.contains (String.toLower q) (String.toLower <| getName animal)
+    else
+        -- Passed validation, fetch data
+        -- Return error if fetched data is empty
+        let
+            animals =
+                [ Dog "Hunter"
+                , Cat "Polo"
+                , Fish "Loki"
+                , Dog "Angel"
+                , Cat "Scout"
+                , Fish "Lexi"
+                , Dog "Zara"
+                , Cat "Maya"
+                , Fish "Baby"
+                , Dog "Bud"
+                , Cat "Ella"
+                , Fish "Ace"
+                , Dog "Kahlua"
+                , Cat "Jake"
+                , Fish "Apollo"
+                , Dog "Sammy"
+                , Cat "Puppy"
+                , Fish "Gucci"
+                , Dog "Mac"
+                , Cat "Belle"
+                ]
 
-        choices : List Animal
-        choices =
-            if String.length query == 0 then
-                []
+            insensitiveStringContains : String -> Animal -> Bool
+            insensitiveStringContains q animal =
+                String.contains (String.toLower q) (String.toLower <| getName animal)
 
-            else
-                List.filter (insensitiveStringContains query) animals
-    in
-    Task.succeed
-        { query = query
-        , choices = choices
-        }
+            choiceList : List Animal
+            choiceList =
+                if String.length lastChoices.query == 0 then
+                    []
+
+                else
+                    List.filter (insensitiveStringContains lastChoices.query) animals
+        in
+        if List.isEmpty choiceList then
+            Task.fail "MISSING_ANIMAL"
+
+        else
+            Task.succeed { lastChoices | choices = choiceList }
 
 
 
@@ -85,7 +93,7 @@ fetcher query =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { autocompleteState = Autocomplete.init { query = "", choices = [] } fetcher
+    ( { autocompleteState = Autocomplete.init { query = "", choices = [], ignoreList = [] } fetcher
       , selectedValue = Nothing
       }
     , Cmd.none
@@ -115,19 +123,16 @@ update msg model =
                 selectedValue =
                     selectedIndex
                         |> Maybe.andThen (\i -> List.drop i choices |> List.head)
-
-                resetedAutocompleteState =
-                    Autocomplete.reset
-                        { query = Maybe.withDefault query <| Maybe.map getName selectedValue
-                        , choices = []
-                        }
-                        autocompleteState
             in
             ( { model
                 | selectedValue = selectedValue
                 , autocompleteState =
-                    resetedAutocompleteState
-                        |> Autocomplete.setIgnoreList (Maybe.withDefault [] <| Maybe.map List.singleton selectedValue)
+                    Autocomplete.reset
+                        { query = Maybe.withDefault query <| Maybe.map getName selectedValue
+                        , choices = []
+                        , ignoreList = Maybe.withDefault [] <| Maybe.map List.singleton selectedValue
+                        }
+                        autocompleteState
               }
             , Cmd.none
             )
@@ -143,7 +148,7 @@ view model =
         { selectedValue, autocompleteState } =
             model
 
-        { query, choices, selectedIndex } =
+        { query, choices, selectedIndex, status } =
             Autocomplete.viewState autocompleteState
 
         { inputEvents, choiceEvents } =
@@ -160,14 +165,15 @@ view model =
             ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
-            if Autocomplete.isFetching autocompleteState then
-                [ Html.text "Fetching..." ]
+            case status of
+                Autocomplete.Error code ->
+                    [ Html.text <| toErrorString code ]
 
-            else if String.length query > 0 then
-                List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+                Autocomplete.Fetching ->
+                    [ Html.text "Fetching..." ]
 
-            else
-                [ Html.text "" ]
+                Autocomplete.Ready ->
+                    List.indexedMap (renderChoice choiceEvents selectedIndex) choices
         ]
 
 
@@ -211,3 +217,16 @@ getAnimalLabel animal =
 
         Fish name ->
             "Fish: " ++ name
+
+
+toErrorString : String -> String
+toErrorString code =
+    case code of
+        "EMPTY_INPUT" ->
+            "Validation Error: Type the name of animal you are searching for..."
+
+        "MISSING_ANIMAL" ->
+            "Data Error: Animal not found!"
+
+        _ ->
+            "Missing error code!"
