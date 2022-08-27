@@ -5,6 +5,9 @@ import Autocomplete.View as AutocompleteView
 import Browser
 import Html exposing (Attribute, Html)
 import Html.Attributes
+import Http
+import Json.Decode as JD
+import Json.Encode as JE
 import Task exposing (Task)
 
 
@@ -19,68 +22,77 @@ main =
 
 
 type alias Model =
-    { autocompleteState : Autocomplete Animal
-    , selectedValue : Maybe Animal
+    { autocompleteState : Autocomplete Post
+    , selectedValue : Maybe Post
     }
 
 
-type Animal
-    = Dog String
-    | Cat String
-    | Fish String
+type alias Post =
+    { id : Int
+    , title : String
+    , body : String
+    }
 
 
 type Msg
-    = OnAutocomplete (Autocomplete.Msg Animal)
+    = OnAutocomplete (Autocomplete.Msg Post)
     | OnAutocompleteSelect
 
 
-fetcher : Autocomplete.Choices Animal -> Task String (Autocomplete.Choices Animal)
+postDecoder : JD.Decoder Post
+postDecoder =
+    JD.map3 Post
+        (JD.field "id" JD.int)
+        (JD.field "title" JD.string)
+        (JD.field "body" JD.string)
+
+
+localFilter : Autocomplete.Choices Post -> List Post -> Autocomplete.Choices Post
+localFilter lastChoices posts =
+    let
+        insensitiveStringContains : String -> String -> Bool
+        insensitiveStringContains a b =
+            String.contains (String.toLower a) (String.toLower b)
+    in
+    { lastChoices | choices = List.filter (.title >> insensitiveStringContains lastChoices.query) posts }
+
+
+resolver : Autocomplete.Choices Post -> Http.Resolver String (Autocomplete.Choices Post)
+resolver lastChoices =
+    Http.stringResolver
+        (\response ->
+            case response of
+                Http.BadUrl_ s ->
+                    Err <| "Bad url: " ++ s
+
+                Http.Timeout_ ->
+                    Err "Request timeout"
+
+                Http.NetworkError_ ->
+                    Err "Network error"
+
+                Http.BadStatus_ _ s ->
+                    Err <| "Bad status: " ++ s
+
+                Http.GoodStatus_ _ body ->
+                    JD.decodeString (JD.list postDecoder) body
+                        -- We are using API from https://jsonplaceholder.typicode.com/posts - Which do not have filtering feature
+                        -- So that in order to do demo, we will filter the result after we receive the data from API
+                        |> Result.map (localFilter lastChoices)
+                        |> Result.mapError (\_ -> "Decode error")
+        )
+
+
+fetcher : Autocomplete.Choices Post -> Task String (Autocomplete.Choices Post)
 fetcher lastChoices =
-    if String.length lastChoices.query < 2 then
-        -- Simple validation
-        Task.fail "Enter at least 2 characters to search"
-
-    else
-        -- Passed validation, fetch data
-        -- Return error if fetched data is empty
-        let
-            animals =
-                [ Dog "Hunter"
-                , Cat "Polo"
-                , Fish "Loki"
-                , Dog "Angel"
-                , Cat "Scout"
-                , Fish "Lexi"
-                , Dog "Zara"
-                , Cat "Maya"
-                , Fish "Baby"
-                , Dog "Bud"
-                , Cat "Ella"
-                , Fish "Ace"
-                , Dog "Kahlua"
-                , Cat "Jake"
-                , Fish "Apollo"
-                , Dog "Sammy"
-                , Cat "Puppy"
-                , Fish "Gucci"
-                , Dog "Mac"
-                , Cat "Belle"
-                ]
-
-            insensitiveStringContains : String -> Animal -> Bool
-            insensitiveStringContains q animal =
-                String.contains (String.toLower q) (String.toLower <| animalName animal)
-
-            choiceList : List Animal
-            choiceList =
-                List.filter (insensitiveStringContains lastChoices.query) animals
-        in
-        if List.isEmpty choiceList then
-            Task.fail "Error: Animal not found!"
-
-        else
-            Task.succeed { lastChoices | choices = choiceList }
+    Http.task
+        { method = "GET"
+        , headers = []
+        , url = "https://jsonplaceholder.typicode.com/posts"
+        , body = Http.stringBody "application/json" (JE.encode 0 <| JE.string lastChoices.query)
+        , timeout = Nothing
+        , resolver = resolver lastChoices
+        }
 
 
 
@@ -123,7 +135,7 @@ update msg model =
                 | selectedValue = selectedValue
                 , autocompleteState =
                     Autocomplete.reset
-                        { query = Maybe.withDefault query <| Maybe.map animalName selectedValue
+                        { query = Maybe.withDefault query <| Maybe.map .title selectedValue
                         , choices = []
                         , ignoreList = Maybe.withDefault [] <| Maybe.map List.singleton selectedValue
                         }
@@ -156,7 +168,7 @@ view model =
         [ Html.div []
             [ Html.text <|
                 "Selected Value: "
-                    ++ (Maybe.map animalLabel selectedValue |> Maybe.withDefault "Nothing")
+                    ++ (Maybe.map .title selectedValue |> Maybe.withDefault "Nothing")
             ]
         , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
         , Html.div [] <|
@@ -175,8 +187,8 @@ view model =
         ]
 
 
-renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> Animal -> Html Msg
-renderChoice events selectedIndex index animal =
+renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> Post -> Html Msg
+renderChoice events selectedIndex index post =
     Html.div
         (if Autocomplete.isSelected selectedIndex index then
             Html.Attributes.style "backgroundColor" "#EEE" :: events index
@@ -184,34 +196,4 @@ renderChoice events selectedIndex index animal =
          else
             Html.Attributes.style "backgroundColor" "#FFF" :: events index
         )
-        [ Html.text <| animalLabel animal ]
-
-
-
--- Helper
-
-
-animalName : Animal -> String
-animalName animal =
-    case animal of
-        Dog name ->
-            name
-
-        Cat name ->
-            name
-
-        Fish name ->
-            name
-
-
-animalLabel : Animal -> String
-animalLabel animal =
-    case animal of
-        Dog name ->
-            "Dog: " ++ name
-
-        Cat name ->
-            "Cat: " ++ name
-
-        Fish name ->
-            "Fish: " ++ name
+        [ Html.text post.title ]
