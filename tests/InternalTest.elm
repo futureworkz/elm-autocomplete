@@ -17,7 +17,7 @@ calculateIndexTest =
     let
         listOfThree : Maybe Int -> KeyDown -> Maybe Int
         listOfThree =
-            calculateIndex [ "0", "1", "2" ]
+            calculateIndex 3
     in
     describe "calculateIndex"
         [ test "ArrowUp: Selects last index when Nothing" <|
