@@ -1,0 +1,25 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  elm-make:
+    name: Build-Format-Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm install -g elm elm-test elm-format
+
+      - uses: actions/checkout@v3
+      - run: elm make src/Autocomplete.elm
+      - run: elm-test
+      - run: elm-format --validate .
