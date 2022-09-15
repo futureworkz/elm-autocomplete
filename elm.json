@@ -1,7 +1,7 @@
 {
   "type": "package",
   "name": "futureworkz/elm-autocomplete",
-  "summary": "Elm Autocomplete with async and debouncing",
+  "summary": "Elm Autocomplete with debouncing and async fetching of data.",
   "license": "MIT",
   "version": "1.0.1",
   "exposed-modules": [
