@@ -59,20 +59,25 @@ inputEvents mapper =
     ]
 
 
+{-| Clicking on the choices has a few scenarios we need to consider:
+
+1.  Send a message to Autocomplete to set selectedIndex and then a message to user for processing (eg. set selectedValue)
+2.  Close the choices popout _conditionally_ via onBlur event on the popup
+
+-}
 choiceEvents : EventMapper a msg -> Int -> List (Attribute msg)
 choiceEvents mapper index =
     let
         { onSelect, mapHtml } =
             mapper
     in
-    -- We cannot use onClick twice
-    -- so we use onMouseDown/Up to send to Autocomplete first
-    -- and then onClick will send to user's app
-    -- onMouseDown/Up will always fire before onClick
-    -- See https://www.w3schools.com/jsref/event_onmouseup.asp
-    [ Events.onMouseDown <| mapHtml <| OnMouseDown index
+    [ -- onClick event is used to send msg to user
+      Events.onClick onSelect
+
+    -- onMouseDown and onMouseUp is sent to Autocomplete to detect a full click and update the selectedIndex
+    -- preventDefault onMouseDown is to prevent firing onBlur on the input (if implemented by user)
+    , Events.preventDefaultOn "mousedown" <| JD.succeed ( mapHtml <| OnMouseDown index, True )
     , Events.onMouseUp <| mapHtml <| OnMouseUp index
-    , Events.onClick onSelect
     ]
 
 

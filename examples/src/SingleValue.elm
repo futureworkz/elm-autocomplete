@@ -5,6 +5,7 @@ import Autocomplete.View as AutocompleteView
 import Browser
 import Html exposing (Attribute, Html)
 import Html.Attributes
+import Html.Events
 import Task exposing (Task)
 
 
@@ -27,6 +28,7 @@ type alias Model =
 type Msg
     = OnAutocomplete (Autocomplete.Msg String)
     | OnAutocompleteSelect
+    | OnAutocompleteBlur
 
 
 fetcher : Autocomplete.Choices String -> Task String (Autocomplete.Choices String)
@@ -119,6 +121,26 @@ update msg model =
             , Cmd.none
             )
 
+        OnAutocompleteBlur ->
+            let
+                { autocompleteState } =
+                    model
+
+                query =
+                    Autocomplete.query autocompleteState
+            in
+            ( { model
+                | autocompleteState =
+                    Autocomplete.reset
+                        { query = query
+                        , choices = []
+                        , ignoreList = []
+                        }
+                        autocompleteState
+              }
+            , Cmd.none
+            )
+
 
 
 -- View
@@ -141,7 +163,7 @@ view model =
     in
     Html.div []
         [ Html.div [] [ Html.text <| "Selected Value: " ++ Maybe.withDefault "Nothing" selectedValue ]
-        , Html.input (inputEvents ++ [ Html.Attributes.value query ]) []
+        , Html.input (inputEvents ++ [ Html.Attributes.value query, Html.Events.onBlur OnAutocompleteBlur ]) []
         , Html.div [] <|
             case status of
                 Autocomplete.NotFetched ->
