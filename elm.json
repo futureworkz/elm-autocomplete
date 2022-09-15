@@ -3,7 +3,7 @@
   "name": "futureworkz/elm-autocomplete",
   "summary": "Elm Autocomplete with debouncing and async fetching of data.",
   "license": "MIT",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "exposed-modules": [
     "Autocomplete",
     "Autocomplete.View",
