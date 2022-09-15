@@ -1,5 +1,5 @@
 module Autocomplete exposing
-    ( Autocomplete, ViewState, ViewStatus(..), Choices, Msg
+    ( Autocomplete, Msg, Choices, ViewState, ViewStatus(..)
     , init, update
     , reset, selectedValue
     , viewState, query, choices, selectedIndex, isSelected
@@ -14,7 +14,7 @@ To render the Autocomplete, please refer to `Autocomplete.View` or `Autocomplete
 
 # Types
 
-@docs Autocomplete, ViewState, ViewStatus, Choices, Msg
+@docs Autocomplete, Msg, Choices, ViewState, ViewStatus
 
 
 # State Management
@@ -38,7 +38,7 @@ import Internal exposing (KeyDown(..), Msg(..))
 import Task exposing (Task)
 
 
-{-| The opaque type of Autocomplete
+{-| Opaque type of Autocomplete state
 -}
 type Autocomplete a
     = Autocomplete (State a)
@@ -50,7 +50,54 @@ type alias Msg a =
     Internal.Msg a
 
 
-{-| Record to hold the query and choices for fetching and displaying
+{-| Record to hold the query and choices for your fetcher function.
+
+    type alias Choices a =
+        { query : String
+        , choices : List a
+        , ignoreList : List a
+        }
+
+    fetcher : Autocomplete.Choices String -> Task String (Autocomplete.Choices String)
+    fetcher lastChoices =
+        let
+            dogs =
+                [ "Hunter"
+                , "Polo"
+                , "Loki"
+                , "Angel"
+                , "Scout"
+                , "Lexi"
+                , "Zara"
+                , "Maya"
+                , "Baby"
+                , "Bud"
+                , "Ella"
+                , "Ace"
+                , "Kahlua"
+                , "Jake"
+                , "Apollo"
+                , "Sammy"
+                , "Puppy"
+                , "Gucci"
+                , "Mac"
+                , "Belle"
+                ]
+
+            insensitiveStringContains : String -> String -> Bool
+            insensitiveStringContains a b =
+                String.contains (String.toLower a) (String.toLower b)
+
+            choiceList : List String
+            choiceList =
+                if String.length lastChoices.query == 0 then
+                    []
+
+                else
+                    List.filter (insensitiveStringContains lastChoices.query) dogs
+        in
+        Task.succeed { lastChoices | choices = choiceList }
+
 -}
 type alias Choices a =
     Internal.Choices a
@@ -89,7 +136,57 @@ type ViewStatus
     | FetchedChoices
 
 
-{-| Initialize the Autocomplete
+{-| Initialize the Autocomplete state with your fetcher function
+
+    init : ( Model, Cmd Msg )
+    init =
+        ( { -- Initialize the Autocomplete state
+            autocompleteState = Autocomplete.init { query = "", choices = [], ignoreList = [] } fetcher
+          , selectedValue = Nothing
+          }
+        , Cmd.none
+        )
+
+    fetcher : Autocomplete.Choices String -> Task String (Autocomplete.Choices String)
+    fetcher lastChoices =
+        let
+            dogs =
+                [ "Hunter"
+                , "Polo"
+                , "Loki"
+                , "Angel"
+                , "Scout"
+                , "Lexi"
+                , "Zara"
+                , "Maya"
+                , "Baby"
+                , "Bud"
+                , "Ella"
+                , "Ace"
+                , "Kahlua"
+                , "Jake"
+                , "Apollo"
+                , "Sammy"
+                , "Puppy"
+                , "Gucci"
+                , "Mac"
+                , "Belle"
+                ]
+
+            insensitiveStringContains : String -> String -> Bool
+            insensitiveStringContains a b =
+                String.contains (String.toLower a) (String.toLower b)
+
+            choiceList : List String
+            choiceList =
+                if String.length lastChoices.query == 0 then
+                    []
+
+                else
+                    List.filter (insensitiveStringContains lastChoices.query) dogs
+        in
+        Task.succeed { lastChoices | choices = choiceList }
+
 -}
 init : Choices a -> (Choices a -> Task String (Choices a)) -> Autocomplete a
 init initChoices fetcher =
@@ -109,7 +206,24 @@ init initChoices fetcher =
         }
 
 
-{-| Update the Autocomplete state
+{-| Updates the Autocomplete state
+
+
+    update : Msg -> Model -> ( Model, Cmd Msg )
+    update msg model =
+        case msg of
+            -- This is the main wire-up to pass Autocomplete Msg to Autocomplete state
+            OnAutocomplete autocompleteMsg ->
+                let
+                    ( newAutocompleteState, autoCompleteCmd ) =
+                        Autocomplete.update autocompleteMsg model.autocompleteState
+                in
+                ( { model | autocompleteState = newAutocompleteState }
+                , Cmd.map OnAutocomplete autoCompleteCmd
+                )
+
+    -- ...
+
 -}
 update : Msg a -> Autocomplete a -> ( Autocomplete a, Cmd (Msg a) )
 update msg (Autocomplete state) =
@@ -205,6 +319,27 @@ update msg (Autocomplete state) =
 
 
 {-| Reset the Autocomplete State
+
+There are many scenarios Autocomplete can handle using the `reset`.
+
+On selected value, display selectedValue but remove all choices:
+
+    Autocomplete.reset
+        { query = Maybe.withDefault query selectedValue
+        , choices = []
+        , ignoreList = []
+        }
+        autocompleteState
+
+On selected multiple values, ignore selected values but still display the choices:
+
+    Autocomplete.reset
+        { query = ""
+        , choices = Autocomplete.choices autocompleteState
+        , ignoreList = selectedValueList
+        }
+        autocompleteState
+
 -}
 reset : Choices a -> Autocomplete a -> Autocomplete a
 reset c (Autocomplete s) =
@@ -224,7 +359,9 @@ selectedValue (Autocomplete s) =
 -- Accessors
 
 
-{-| Returns the ViewState of the Autocomplete
+{-| Returns the ViewState of the Autocomplete to render the view.
+Remember to attach Autocomplete events to your view!
+See [Autocomplete.View](Autocomplete.View#events)
 -}
 viewState : Autocomplete a -> ViewState a
 viewState (Autocomplete s) =
@@ -258,6 +395,18 @@ selectedIndex (Autocomplete s) =
 
 
 {-| Helper function to calculate if an index is selected
+
+    renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> String -> Html Msg
+    renderChoice events selectedIndex index s =
+        Html.div
+            (if Autocomplete.isSelected selectedIndex index then
+                Html.Attributes.style "backgroundColor" "#EEE" :: events index
+
+             else
+                Html.Attributes.style "backgroundColor" "#FFF" :: events index
+            )
+            [ Html.text s ]
+
 -}
 isSelected : Maybe Int -> Int -> Bool
 isSelected selected index =

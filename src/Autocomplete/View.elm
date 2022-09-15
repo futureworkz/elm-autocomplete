@@ -5,6 +5,70 @@ module Autocomplete.View exposing
 
 {-| Autocomplete.View exposes HTML events to be attached for input and every autocomplete choice.
 
+    view : Model -> Html Msg
+    view model =
+        let
+            { selectedValue, autocompleteState } =
+                model
+
+            -- Get view-related state from the Autocomplete State
+            { query, choices, selectedIndex, status } =
+                Autocomplete.viewState autocompleteState
+
+            -- Important! We need to attach input and choice events to our view
+            { inputEvents, choiceEvents } =
+                AutocompleteView.events
+                    { onSelect = OnAutocompleteSelect
+                    , mapHtml = OnAutocomplete
+                    }
+        in
+        Html.div []
+            [ Html.div [] [ Html.text <| "Selected Value: " ++ Maybe.withDefault "Nothing" selectedValue ]
+
+            -- Our simple input view with the inputEvents from AutocompleteView.events
+            -- which handles keydown/input events
+            -- We add our own custom onBlur event to close the Autocomplete when focus is lost
+            , Html.input
+                (inputEvents
+                    ++ [ Html.Attributes.value query, Html.Events.onBlur OnAutocompleteBlur ]
+                )
+                []
+
+            -- The container for our choices
+            , Html.div [] <|
+                -- Autocomplete.viewState provides a fetching status type
+                -- We can use this to render our choices
+                case status of
+                    Autocomplete.NotFetched ->
+                        [ Html.text "" ]
+
+                    Autocomplete.Fetching ->
+                        [ Html.text "Fetching..." ]
+
+                    Autocomplete.Error s ->
+                        [ Html.text s ]
+
+                    Autocomplete.FetchedChoices ->
+                        if String.length query > 0 then
+                            -- Our simple div view for each choice with choiceEvent
+                            -- from AutocompleteView.events which handles mouse click events
+                            List.indexedMap (renderChoice choiceEvents selectedIndex) choices
+
+                        else
+                            [ Html.text "" ]
+            ]
+
+    renderChoice : (Int -> List (Attribute Msg)) -> Maybe Int -> Int -> String -> Html Msg
+    renderChoice events selectedIndex index s =
+        Html.div
+            (if Autocomplete.isSelected selectedIndex index then
+                Html.Attributes.style "backgroundColor" "#EEE" :: events index
+
+             else
+                Html.Attributes.style "backgroundColor" "#FFF" :: events index
+            )
+            [ Html.text s ]
+
 
 # Type
 
